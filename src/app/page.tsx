@@ -1,35 +1,39 @@
 "use client"
 import Image from "next/image";
 import { auth, googleProvider } from './firebase'; // Adjust path as needed
-import { getIdToken, signInWithPopup, signOut } from 'firebase/auth';
+import { signInWithPopup, signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 export default function Home() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const token = process.env.NEXT_PUBLIC_SHEET_DB_TOKEN;
 
   const handleGoogleSignIn = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      const token = await getIdToken(user);
-      const json = { token };
-
+      await signInWithPopup(auth, googleProvider);
       // Send ID token to the API route to store it in an HTTP-only cookie
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(json),
-      });
-
-      if (response.ok) {
-        setIsLoggedIn(true);
-        // Redirect the user back to Webflow with the token
-        router.push(`http://localhost:1337/`);
-      } else {
-        console.error('No redirect URI provided.');
-      }
+      await fetch('https://sheetdb.io/api/v1/f3vdwvj0et1zj/id/1', {
+        method: 'PATCH',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          data: {
+            'status': "TRUE"
+          }
+        })
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          console.log(data)
+          setIsLoggedIn(true)
+          router.push(`http://localhost:1337/`);
+        }
+        );
     } catch (error) {
       console.error('Google Sign-in Error:', error);
     }
@@ -41,17 +45,20 @@ export default function Home() {
       await signOut(auth);
 
       // Clear session token via API
-      const response = await fetch('/api/logout', {
-        method: 'POST',
-        credentials: 'include', // Include cookies in the request
-      });
-
-      if (response.ok) {
-        setIsLoggedIn(false);
-        console.log('Logged out successfully.');
-      } else {
-        console.error('Error during logout:', response.statusText);
-      }
+      await fetch('https://sheetdb.io/api/v1/f3vdwvj0et1zj/id/1', {
+        method: 'PATCH',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          data: {
+            'status': "FALSE"
+          }
+        })
+      })
+      setIsLoggedIn(false)
     } catch (error) {
       console.error('Logout Error:', error);
     }
