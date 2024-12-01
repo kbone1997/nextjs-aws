@@ -1,50 +1,89 @@
-"use client"
+"use client";
 import Image from "next/image";
-import { auth, googleProvider } from './firebase'; // Adjust path as needed
-import { signInWithPopup, signOut } from 'firebase/auth';
+import { auth, googleProvider, githubProvider } from './firebase'; // Adjust path as needed
+import { signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 export default function Home() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [email1, setEmail1] = useState("");
+  const [password1, setPassword1] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const token = process.env.NEXT_PUBLIC_SHEET_DB_TOKEN;
 
+  const handleSignup = async () => {
+    setError("");
+
+    if (password1 !== confirmPassword) {
+      setError("Passwords do not match!");
+      return;
+    }
+
+    try {
+      await createUserWithEmailAndPassword(auth, email1, password1);
+      setSuccessMessage("Account created successfully!");
+      setEmail1("");
+      setPassword1("");
+      setConfirmPassword("");
+    } catch (error) {
+      console.error("Signup Error:", error);
+      setError("Something went wrong.");
+    }
+  };
+
   const handleGoogleSignIn = async () => {
+    handleLogout()
     try {
       await signInWithPopup(auth, googleProvider);
-      // Send ID token to the API route to store it in an HTTP-only cookie
-      await fetch('https://sheetdb.io/api/v1/f3vdwvj0et1zj/id/1', {
-        method: 'PATCH',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          data: {
-            'status': "TRUE"
-          }
-        })
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          console.log(data)
-          setIsLoggedIn(true)
-          router.push(`http://localhost:1337/`);
-        }
-        );
+      await updateStatus("TRUE");
+      setIsLoggedIn(true);
+      router.push(`http://localhost:1337/`);
     } catch (error) {
       console.error('Google Sign-in Error:', error);
     }
   };
 
+  const handleGitHubSignIn = async () => {
+    handleLogout()
+    try {
+      await signInWithPopup(auth, githubProvider);
+      await updateStatus("TRUE");
+      setIsLoggedIn(true);
+      router.push(`http://localhost:1337/`);
+    } catch (error) {
+      console.error('GitHub Sign-in Error:', error);
+    }
+  };
+
+  const handleEmailPasswordSignIn = async () => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      await updateStatus("TRUE");
+      setIsLoggedIn(true);
+      router.push(`http://localhost:1337/`);
+    } catch (error) {
+      console.error('Email/Password Sign-in Error:', error);
+    }
+  };
+
   const handleLogout = async () => {
     try {
-      // Sign out from Firebase
       await signOut(auth);
+      await updateStatus("FALSE");
+      setIsLoggedIn(false);
+    } catch (error) {
+      console.error('Logout Error:', error);
+    }
+  };
 
-      // Clear session token via API
+  const updateStatus = async (status: string) => {
+    try {
       await fetch('https://sheetdb.io/api/v1/f3vdwvj0et1zj/id/1', {
         method: 'PATCH',
         headers: {
@@ -53,14 +92,11 @@ export default function Home() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          data: {
-            'status': "FALSE"
-          }
+          data: { 'status': status }
         })
-      })
-      setIsLoggedIn(false)
+      });
     } catch (error) {
-      console.error('Logout Error:', error);
+      console.error('Status Update Error:', error);
     }
   };
 
@@ -70,17 +106,69 @@ export default function Home() {
         <div className="flex gap-4 items-center flex-col sm:flex-row">
           {!isLoggedIn ? (
             <>
-              <div
-                className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-              >
-                <Image
-                  className="dark:invert"
-                  src="/password.svg"
-                  alt="Vercel logomark"
-                  width={20}
-                  height={20}
+              <div className="flex flex-col items-center justify-center min-h-screen p-8 gap-4">
+                <h1 className="text-2xl font-bold">Signup with Email/Password</h1>
+
+                <input
+                  type="email"
+                  placeholder="Email"
+                  className="border rounded p-2 w-full max-w-sm"
+                  value={email1}
+                  onChange={(e) => setEmail1(e.target.value)}
                 />
-                Email/Password
+                <input
+                  type="password"
+                  placeholder="Password"
+                  className="border rounded p-2 w-full max-w-sm"
+                  value={password1}
+                  onChange={(e) => setPassword1(e.target.value)}
+                />
+                <input
+                  type="password"
+                  placeholder="Confirm Password"
+                  className="border rounded p-2 w-full max-w-sm"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+
+                {error && <p className="text-red-500">{error}</p>}
+                {successMessage && <p className="text-green-500">{successMessage}</p>}
+
+                <button
+                  onClick={handleSignup}
+                  className="rounded-full bg-blue-500 text-white py-2 px-6 mt-4 hover:bg-blue-700"
+                >
+                  Sign Up
+                </button>
+              </div>
+              <div className="flex flex-col gap-4">
+                <input
+                  type="email"
+                  placeholder="Email"
+                  className="border rounded p-2"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <input
+                  type="password"
+                  placeholder="Password"
+                  className="border rounded p-2"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <div
+                  className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
+                  onClick={handleEmailPasswordSignIn}
+                >
+                  <Image
+                    className="dark:invert"
+                    src="/password.svg"
+                    alt="Vercel logomark"
+                    width={20}
+                    height={20}
+                  />
+                  Sign In with Email/Password
+                </div>
               </div>
 
               <div
@@ -90,11 +178,25 @@ export default function Home() {
                 <Image
                   className="dark:invert"
                   src="/google.svg"
-                  alt="Vercel logomark"
+                  alt="Google logo"
                   width={20}
                   height={20}
                 />
                 Continue with Google
+              </div>
+
+              <div
+                className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
+                onClick={handleGitHubSignIn}
+              >
+                <Image
+                  className="dark:invert"
+                  src="/github.svg"
+                  alt="GitHub logo"
+                  width={20}
+                  height={20}
+                />
+                Continue with GitHub
               </div>
             </>
           ) : (
