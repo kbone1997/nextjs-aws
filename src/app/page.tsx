@@ -83,7 +83,7 @@ export default function Home() {
   };
 
   const updateStatus = async (status: string) => {
-    console.log("token:", token)
+    //console.log("token:", token)
     try {
       await fetch('https://sheetdb.io/api/v1/f3vdwvj0et1zj/id/1', {
         method: 'PATCH',
